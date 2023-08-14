@@ -1,0 +1,19 @@
+[package]
+name = "naga-clib"
+version = "0.12.0"
+authors = ["Naga Developers"]
+edition = "2021"
+description = "Shader translation command line tool"
+homepage = "https://github.com/gfx-rs/naga"
+repository = "https://github.com/gfx-rs/naga"
+keywords = ["shader", "SPIR-V", "GLSL", "MSL"]
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+naga = { version = "0.13", path = "../", features = ["validate", "span", "wgsl-in", "wgsl-out", "glsl-in", "glsl-out", "spv-in", "spv-out", "msl-out", "hlsl-out", "dot-out", "serialize", "deserialize"] }
+libc = "0.2"
+
+[lib]
+name = "naga"
+path = "clib.rs"
+crate-type = ["staticlib"]

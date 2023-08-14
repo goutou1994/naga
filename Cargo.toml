@@ -79,9 +79,9 @@ serde = { version = "1.0", features = ["derive"] }
 spirv = { version = "0.2", features = ["deserialize"] }
 
 [workspace]
-members = [".", "cli"]
+members = [".", "cli", "clib"]
 
 # Include "cli", so that `cargo run` runs the CLI by default. Include ".", so
 # that `cargo test` includes naga's own tests by default (but note, using the
 # features that `cli/Cargo.toml` requests).
-default-members = [".", "cli"]
+default-members = [".", "cli", "clib"]
