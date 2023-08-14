@@ -1,8 +1,6 @@
 extern crate libc;
 use std::{ffi::CStr, ptr::null};
 
-const tt: bool = false;
-
 #[repr(C)]
 pub struct CompileResult {
     data: *const libc::c_void,
@@ -98,6 +96,7 @@ fn module_to_spv(module: naga::Module) -> Result<Vec<u8>, String> {
 }
 
 #[no_mangle]
+#[allow(non_snake_case)]
 pub fn qWEjz_klm_compile_wgsl(path: *const libc::c_char, ) -> CompileResult {
     let c_str: &CStr = unsafe { CStr::from_ptr(path) };
     let str_slice: &str = c_str.to_str().unwrap();
@@ -108,22 +107,21 @@ pub fn qWEjz_klm_compile_wgsl(path: *const libc::c_char, ) -> CompileResult {
             println!("Parse Into IR Complete!");
 
             match module_to_spv(module) {
-                Ok(data) => {
+                Ok(data) => unsafe {
                     println!("Convert to SPIR-V Complete!");
-                    unsafe {
+                    // unsafe {
                         let c_data: *mut libc::c_void = libc::malloc(data.len());
                         libc::memcpy(c_data, data.as_ptr() as *const libc::c_void, data.len());
-
                         return CompileResult {
                             data: c_data,
                             len: data.len(),
                             err: libc::boolean_t::from(false),
                             msg: null()
                         }
-                    }
+                    // }
                 },
-                Err(e) => {
-                    unsafe {
+                Err(e) => unsafe {
+                    // unsafe {
                         let c_str: *mut libc::c_void = libc::malloc(e.len());
                         libc::memcpy(c_str, e.as_ptr() as *const libc::c_void, e.len());
                         return CompileResult {
@@ -132,14 +130,15 @@ pub fn qWEjz_klm_compile_wgsl(path: *const libc::c_char, ) -> CompileResult {
                             err: libc::boolean_t::from(true),
                             msg: c_str as *const libc::c_char
                         }
-                    }
+                    // }
                 }
             }
             // naga::back::spv::
         },
-        Err(ref e) => {
-            unsafe {
-                let e_str = e.to_string();
+        Err(ref e) => unsafe {
+            // unsafe {
+                let e_str = e.emit_to_string(&input);
+                // let e_str = e.to_string();
                 let c_str: *mut libc::c_void = libc::malloc(e_str.len());
                 libc::memcpy(c_str, e_str.as_ptr() as *const libc::c_void, e_str.len());
                 return CompileResult {
@@ -148,7 +147,7 @@ pub fn qWEjz_klm_compile_wgsl(path: *const libc::c_char, ) -> CompileResult {
                     err: libc::boolean_t::from(true),
                     msg: c_str as *const libc::c_char
                 }
-            }
+            // }
             // // let path = input_path.to_string_lossy();
             // e.emit_to_stderr_with_path(&input, &input);
             // println!("Could not parse WGSL");

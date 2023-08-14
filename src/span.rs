@@ -5,8 +5,8 @@ use std::{error::Error, fmt, ops::Range};
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct Span {
-    start: u32,
-    end: u32,
+    pub start: u32,
+    pub end: u32,
 }
 
 impl Span {

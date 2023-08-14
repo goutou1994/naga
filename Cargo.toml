@@ -24,20 +24,20 @@ panic = "abort"
 [features]
 default = []
 clone = []
-dot-out = []
-glsl-in = ["pp-rs"]
-glsl-out = []
-msl-out = []
-serialize = ["serde", "bitflags/serde", "indexmap/serde"]
-deserialize = ["serde", "bitflags/serde", "indexmap/serde"]
-arbitrary = ["dep:arbitrary", "bitflags/arbitrary", "indexmap/arbitrary"]
-spv-in = ["petgraph", "spirv"]
+# dot-out = []
+# glsl-in = ["pp-rs"]
+# glsl-out = []
+# msl-out = []
+# serialize = ["serde", "bitflags/serde", "indexmap/serde"]
+# deserialize = ["serde", "bitflags/serde", "indexmap/serde"]
+# arbitrary = ["dep:arbitrary", "bitflags/arbitrary", "indexmap/arbitrary"]
+# spv-in = ["petgraph", "spirv"]
 spv-out = ["spirv"]
 wgsl-in = ["codespan-reporting", "hexf-parse", "termcolor", "unicode-xid"]
-wgsl-out = []
-hlsl-out = []
-span = ["codespan-reporting", "termcolor"]
-validate = []
+# wgsl-out = []
+# hlsl-out = []
+# span = ["codespan-reporting", "termcolor"]
+# validate = []
 
 [[bench]]
 name = "criterion"
@@ -79,9 +79,7 @@ serde = { version = "1.0", features = ["derive"] }
 spirv = { version = "0.2", features = ["deserialize"] }
 
 [workspace]
-members = [".", "cli", "clib"]
+members = [".", "clib"]
+default-members = [".", "clib"]
+exclude = ["cli"]
 
-# Include "cli", so that `cargo run` runs the CLI by default. Include ".", so
-# that `cargo test` includes naga's own tests by default (but note, using the
-# features that `cli/Cargo.toml` requests).
-default-members = [".", "cli", "clib"]

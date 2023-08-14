@@ -1,12 +1,12 @@
 use crate::front::wgsl::parse::lexer::Token;
 use crate::proc::{Alignment, ResolveError};
 use crate::{SourceLocation, Span};
-use codespan_reporting::diagnostic::{Diagnostic, Label};
-use codespan_reporting::files::SimpleFile;
-use codespan_reporting::term;
+// use codespan_reporting::diagnostic::{Diagnostic, Label};
+// use codespan_reporting::files::SimpleFile;
+// use codespan_reporting::term;
 use std::borrow::Cow;
 use std::ops::Range;
-use termcolor::{ColorChoice, NoColor, StandardStream};
+// use termcolor::{ColorChoice, NoColor, StandardStream};
 use thiserror::Error;
 
 #[derive(Clone, Debug)]
@@ -27,26 +27,26 @@ impl ParseError {
         &self.message
     }
 
-    fn diagnostic(&self) -> Diagnostic<()> {
-        let diagnostic = Diagnostic::error()
-            .with_message(self.message.to_string())
-            .with_labels(
-                self.labels
-                    .iter()
-                    .map(|label| {
-                        Label::primary((), label.0.to_range().unwrap())
-                            .with_message(label.1.to_string())
-                    })
-                    .collect(),
-            )
-            .with_notes(
-                self.notes
-                    .iter()
-                    .map(|note| format!("note: {note}"))
-                    .collect(),
-            );
-        diagnostic
-    }
+    // fn diagnostic(&self) -> Diagnostic<()> {
+    //     let diagnostic = Diagnostic::error()
+    //         .with_message(self.message.to_string())
+    //         .with_labels(
+    //             self.labels
+    //                 .iter()
+    //                 .map(|label| {
+    //                     Label::primary((), label.0.to_range().unwrap())
+    //                         .with_message(label.1.to_string())
+    //                 })
+    //                 .collect(),
+    //         )
+    //         .with_notes(
+    //             self.notes
+    //                 .iter()
+    //                 .map(|note| format!("note: {note}"))
+    //                 .collect(),
+    //         );
+    //     diagnostic
+    // }
 
     /// Emits a summary of the error to standard error stream.
     pub fn emit_to_stderr(&self, source: &str) {
@@ -55,25 +55,29 @@ impl ParseError {
 
     /// Emits a summary of the error to standard error stream.
     pub fn emit_to_stderr_with_path(&self, source: &str, path: &str) {
-        let files = SimpleFile::new(path, source);
-        let config = codespan_reporting::term::Config::default();
-        let writer = StandardStream::stderr(ColorChoice::Auto);
-        term::emit(&mut writer.lock(), &config, &files, &self.diagnostic())
-            .expect("cannot write error");
+        // let files = SimpleFile::new(path, source);
+        // let config = codespan_reporting::term::Config::default();
+        // let writer = StandardStream::stderr(ColorChoice::Auto);
+        // term::emit(&mut writer.lock(), &config, &files, &self.diagnostic())
+        //     .expect("cannot write error");
     }
 
     /// Emits a summary of the error to a string.
-    pub fn emit_to_string(&self, source: &str) -> String {
-        self.emit_to_string_with_path(source, "wgsl")
+    pub fn emit_to_string(&self, src: &str) -> String {
+        let start: usize = self.labels.get(0).unwrap().0.start as usize;
+        let end: usize = self.labels.get(0).unwrap().0.end as usize;
+        let line = src[0..start].lines().count() - 1;
+        format!("wgsl: line {}: `{}`\n{}", line, src.lines().nth(line).unwrap_or("unknown").trim(), self.to_string())
     }
 
     /// Emits a summary of the error to a string.
     pub fn emit_to_string_with_path(&self, source: &str, path: &str) -> String {
-        let files = SimpleFile::new(path, source);
-        let config = codespan_reporting::term::Config::default();
-        let mut writer = NoColor::new(Vec::new());
-        term::emit(&mut writer, &config, &files, &self.diagnostic()).expect("cannot write error");
-        String::from_utf8(writer.into_inner()).unwrap()
+        // let files = SimpleFile::new(path, source);
+        // let config = codespan_reporting::term::Config::default();
+        // let mut writer = NoColor::new(Vec::new());
+        // term::emit(&mut writer, &config, &files, &self.diagnostic()).expect("cannot write error");
+        // String::from_utf8(writer.into_inner()).unwrap()
+        String::default()
     }
 
     /// Returns a [`SourceLocation`] for the first label in the error message.
