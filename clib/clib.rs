@@ -5,7 +5,7 @@ use std::{ffi::CStr, ptr::null};
 pub struct CompileResult {
     data: *const libc::c_void,
     len: libc::size_t,
-    err: libc::boolean_t,
+    err: u8,
     msg: *const libc::c_char
 }
 
@@ -115,7 +115,7 @@ pub fn qWEjz_klm_compile_wgsl(path: *const libc::c_char, ) -> CompileResult {
                         return CompileResult {
                             data: c_data,
                             len: data.len(),
-                            err: libc::boolean_t::from(false),
+                            err: u8::from(false),
                             msg: null()
                         }
                     // }
@@ -127,7 +127,7 @@ pub fn qWEjz_klm_compile_wgsl(path: *const libc::c_char, ) -> CompileResult {
                         return CompileResult {
                             data: null(),
                             len: 0,
-                            err: libc::boolean_t::from(true),
+                            err: u8::from(true),
                             msg: c_str as *const libc::c_char
                         }
                     // }
@@ -144,7 +144,7 @@ pub fn qWEjz_klm_compile_wgsl(path: *const libc::c_char, ) -> CompileResult {
                 return CompileResult {
                     data: null(),
                     len: 0,
-                    err: libc::boolean_t::from(true),
+                    err: u8::from(true),
                     msg: c_str as *const libc::c_char
                 }
             // }
