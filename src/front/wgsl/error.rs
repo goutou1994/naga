@@ -17,7 +17,7 @@ pub struct ParseError {
 }
 
 impl ParseError {
-    pub fn labels(&self) -> impl Iterator<Item = (Span, &str)> + ExactSizeIterator + '_ {
+    pub fn labels(&self) -> impl ExactSizeIterator<Item = (Span, &str)> + '_ {
         self.labels
             .iter()
             .map(|&(span, ref msg)| (span, msg.as_ref()))
@@ -246,6 +246,7 @@ pub enum Error<'a> {
     Other,
     ExpectedArraySize(Span),
     NonPositiveArrayLength(Span),
+    MissingWorkgroupSize(Span),
 }
 
 impl<'a> Error<'a> {
@@ -437,7 +438,7 @@ impl<'a> Error<'a> {
             },
             Error::RepeatedAttribute(bad_span) => ParseError {
                 message: format!("repeated attribute: '{}'", &source[bad_span]),
-                labels: vec![(bad_span, "repated attribute".into())],
+                labels: vec![(bad_span, "repeated attribute".into())],
                 notes: vec![],
             },
             Error::UnknownAttribute(bad_span) => ParseError {
@@ -706,6 +707,14 @@ impl<'a> Error<'a> {
             Error::NonPositiveArrayLength(span) => ParseError {
                 message: "array element count must be greater than zero".to_string(),
                 labels: vec![(span, "must be greater than zero".into())],
+                notes: vec![],
+            },
+            Error::MissingWorkgroupSize(span) => ParseError {
+                message: "workgroup size is missing on compute shader entry point".to_string(),
+                labels: vec![(
+                    span,
+                    "must be paired with a @workgroup_size attribute".into(),
+                )],
                 notes: vec![],
             },
         }

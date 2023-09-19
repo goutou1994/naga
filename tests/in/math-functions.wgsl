@@ -8,6 +8,10 @@ fn main() {
     let d = radians(v);
     let e = saturate(v);
     let g = refract(v, v, f);
+    let sign_a = sign(-1);
+    let sign_b = sign(vec4(-1));
+    let sign_c = sign(-1.0);
+    let sign_d = sign(vec4(-1.0));
     let const_dot = dot(vec2<i32>(), vec2<i32>());
     let first_leading_bit_abs = firstLeadingBit(abs(0u));
     let flb_a = firstLeadingBit(-1);
@@ -29,4 +33,16 @@ fn main() {
     let clz_b = countLeadingZeros(1u);
     let clz_c = countLeadingZeros(vec2(-1));
     let clz_d = countLeadingZeros(vec2(1u));
+    let lde_a = ldexp(1.0, 2);
+    let lde_b = ldexp(vec2(1.0, 2.0), vec2(3, 4));
+    let modf_a = modf(1.5);
+    let modf_b = modf(1.5).fract;
+    let modf_c = modf(1.5).whole;
+    let modf_d = modf(vec2(1.5, 1.5));
+    let modf_e = modf(vec4(1.5, 1.5, 1.5, 1.5)).whole.x;
+    let modf_f: f32 = modf(vec2(1.5, 1.5)).fract.y;
+    let frexp_a = frexp(1.5);
+    let frexp_b = frexp(1.5).fract;
+    let frexp_c: i32 = frexp(1.5).exp;
+    let frexp_d: i32 = frexp(vec4(1.5, 1.5, 1.5, 1.5)).exp.x;
 }

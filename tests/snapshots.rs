@@ -512,6 +512,10 @@ fn convert_wgsl() {
             "fragment-output",
             Targets::SPIRV | Targets::METAL | Targets::GLSL | Targets::HLSL | Targets::WGSL,
         ),
+        (
+            "dualsource",
+            Targets::SPIRV | Targets::METAL | Targets::GLSL | Targets::HLSL | Targets::WGSL,
+        ),
         ("functions-webgl", Targets::GLSL),
         (
             "interpolate",
@@ -602,6 +606,7 @@ fn convert_wgsl() {
             "workgroup-uniform-load",
             Targets::WGSL | Targets::GLSL | Targets::SPIRV | Targets::HLSL | Targets::METAL,
         ),
+        ("runtime-array-in-unused-struct", Targets::SPIRV),
         ("sprite", Targets::SPIRV),
         ("force_point_size_vertex_shader_webgl", Targets::GLSL),
         ("invariant", Targets::GLSL),
@@ -649,6 +654,7 @@ fn convert_spv(name: &str, adjust_coordinate_space: bool, targets: Targets) {
 
     let root = env!("CARGO_MANIFEST_DIR");
 
+    println!("Processing '{name}'");
     let module = naga::front::spv::parse_u8_slice(
         &fs::read(format!("{root}/{BASE_DIR_IN}/spv/{name}.spv")).expect("Couldn't find spv file"),
         &naga::front::spv::Options {
