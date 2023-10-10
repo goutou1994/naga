@@ -9,7 +9,7 @@ pub struct CompileResult {
     msg: *const libc::c_char
 }
 
-fn module_to_spv(module: naga::Module) -> Result<Vec<u8>, String> {
+fn module_to_spv(module: naga::Module, source: &str) -> Result<Vec<u8>, String> {
     use naga::back::spv;
 
     let validation_caps = naga::valid::Capabilities::all();
@@ -18,16 +18,9 @@ fn module_to_spv(module: naga::Module) -> Result<Vec<u8>, String> {
     let info = match naga::valid::Validator::new(validation_flags, validation_caps)
         .validate(&module)
     {
-        Ok(info) => info,
+        Ok(info) => info,  
         Err(error) => {
-            return Result::Err(error.to_string());
-            // if let Some(input) = &input_text {
-            //     let filename = input_path.file_name().and_then(std::ffi::OsStr::to_str);
-            //     emit_annotated_error(&error, filename.unwrap_or("input"), input);
-            // }
-            // print_err(&error);
-            // panic!("");
-            // None
+            return Result::Err(error.emit_to_string(source));
         }
     };
 
@@ -106,7 +99,7 @@ pub fn qWEjz_klm_compile_wgsl(path: *const libc::c_char, ) -> CompileResult {
         Ok(module) => {
             println!("Parse Into IR Complete!");
 
-            match module_to_spv(module) {
+            match module_to_spv(module, str_slice) {
                 Ok(data) => unsafe {
                     println!("Convert to SPIR-V Complete!");
                     // unsafe {
