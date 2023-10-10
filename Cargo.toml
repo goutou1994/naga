@@ -37,7 +37,7 @@ wgsl-in = ["hexf-parse", "unicode-xid"]
 # wgsl-out = []
 # hlsl-out = []
 # span = ["codespan-reporting", "termcolor"]
-# validate = []
+validate = []
 
 [[bench]]
 name = "criterion"

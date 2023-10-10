@@ -10,7 +10,7 @@ keywords = ["shader", "SPIR-V", "GLSL", "MSL"]
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-naga = { version = "0.13", path = "../", features = ["wgsl-in", "spv-out"] }
+naga = { version = "0.13", path = "../", features = ["wgsl-in", "spv-out", "validate"] }
 libc = "0.2"
 
 [lib]

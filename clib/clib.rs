@@ -13,7 +13,7 @@ fn module_to_spv(module: naga::Module) -> Result<Vec<u8>, String> {
     use naga::back::spv;
 
     let validation_caps = naga::valid::Capabilities::all();
-    let validation_flags = naga::valid::ValidationFlags::empty();
+    let validation_flags = naga::valid::ValidationFlags::all();
 
     let info = match naga::valid::Validator::new(validation_flags, validation_caps)
         .validate(&module)
@@ -32,7 +32,7 @@ fn module_to_spv(module: naga::Module) -> Result<Vec<u8>, String> {
     };
 
     let mut options = naga::back::spv::Options::default();
-    options.lang_version = (1, 6);
+    options.lang_version = (1, 3);
     // options.bounds_check_policies = 
 
 
