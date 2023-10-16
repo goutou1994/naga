@@ -38,6 +38,7 @@ wgsl-in = ["hexf-parse", "unicode-xid"]
 # hlsl-out = []
 span = ["codespan-reporting"]
 validate = []
+compact = []
 
 [[bench]]
 name = "criterion"

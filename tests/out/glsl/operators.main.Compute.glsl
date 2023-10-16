@@ -17,9 +17,9 @@ vec4 builtins() {
     vec4 s3_ = mix(v_f32_one, v_f32_zero, bvec4(false, false, false, false));
     vec4 m1_ = mix(v_f32_zero, v_f32_one, v_f32_half);
     vec4 m2_ = mix(v_f32_zero, v_f32_one, 0.1);
-    float b1_ = intBitsToFloat(v_i32_one.x);
+    float b1_ = intBitsToFloat(1);
     vec4 b2_ = intBitsToFloat(v_i32_one);
-    ivec4 v_i32_zero = ivec4(v_f32_zero);
+    ivec4 v_i32_zero = ivec4(0, 0, 0, 0);
     return (((((vec4((ivec4(s1_) + v_i32_zero)) + s2_) + m1_) + m2_) + vec4(b1_)) + b2_);
 }
 
@@ -30,8 +30,7 @@ vec4 splat() {
 }
 
 vec2 splat_assignment() {
-    vec2 a = vec2(0.0);
-    a = vec2(2.0);
+    vec2 a = vec2(2.0);
     vec2 _e4 = a;
     a = (_e4 + vec2(1.0));
     vec2 _e8 = a;
@@ -59,6 +58,7 @@ void logical() {
 }
 
 void arithmetic() {
+    float neg0_1 = -(1.0);
     ivec2 neg1_1 = -(ivec2(1));
     vec2 neg2_ = -(vec2(1.0));
     int add0_ = (2 + 1);
@@ -202,54 +202,54 @@ void assignment() {
     int a_1 = 0;
     ivec3 vec0_ = ivec3(0);
     a_1 = 1;
-    int _e3 = a_1;
-    a_1 = (_e3 + 1);
-    int _e6 = a_1;
-    a_1 = (_e6 - 1);
-    int _e8 = a_1;
+    int _e5 = a_1;
+    a_1 = (_e5 + 1);
+    int _e7 = a_1;
+    a_1 = (_e7 - 1);
     int _e9 = a_1;
-    a_1 = (_e9 * _e8);
-    int _e11 = a_1;
+    int _e10 = a_1;
+    a_1 = (_e10 * _e9);
     int _e12 = a_1;
-    a_1 = (_e12 / _e11);
+    int _e13 = a_1;
+    a_1 = (_e13 / _e12);
     int _e15 = a_1;
     a_1 = (_e15 % 1);
-    int _e18 = a_1;
-    a_1 = (_e18 & 0);
+    int _e17 = a_1;
+    a_1 = (_e17 & 0);
+    int _e19 = a_1;
+    a_1 = (_e19 | 0);
     int _e21 = a_1;
-    a_1 = (_e21 | 0);
-    int _e24 = a_1;
-    a_1 = (_e24 ^ 0);
-    int _e27 = a_1;
-    a_1 = (_e27 << 2u);
-    int _e30 = a_1;
-    a_1 = (_e30 >> 1u);
-    int _e33 = a_1;
-    a_1 = (_e33 + 1);
-    int _e36 = a_1;
-    a_1 = (_e36 - 1);
-    vec0_ = ivec3(0);
-    int _e43 = vec0_.y;
-    vec0_.y = (_e43 + 1);
-    int _e48 = vec0_.y;
-    vec0_.y = (_e48 - 1);
+    a_1 = (_e21 ^ 0);
+    int _e23 = a_1;
+    a_1 = (_e23 << 2u);
+    int _e25 = a_1;
+    a_1 = (_e25 >> 1u);
+    int _e28 = a_1;
+    a_1 = (_e28 + 1);
+    int _e31 = a_1;
+    a_1 = (_e31 - 1);
+    int _e37 = vec0_[1];
+    vec0_[1] = (_e37 + 1);
+    int _e41 = vec0_[1];
+    vec0_[1] = (_e41 - 1);
     return;
 }
 
 void negation_avoids_prefix_decrement() {
-    int p1_ = -(-2);
-    int p2_ = -(-3);
-    int p3_ = -(-(4));
-    int p4_ = -(-(-5));
-    int p5_ = -(-(-(-(6))));
-    int p6_ = -(-(-(-(-7))));
-    int p7_ = -(-(-(-(-8))));
+    int p0_ = -(1);
+    int p1_ = -(-(1));
+    int p2_ = -(-(1));
+    int p3_ = -(-(1));
+    int p4_ = -(-(-(1)));
+    int p5_ = -(-(-(-(1))));
+    int p6_ = -(-(-(-(-(1)))));
+    int p7_ = -(-(-(-(-(1)))));
 }
 
 void main() {
     vec4 _e0 = builtins();
     vec4 _e1 = splat();
-    vec3 _e4 = bool_cast(v_f32_one.xyz);
+    vec3 _e6 = bool_cast(vec3(1.0, 1.0, 1.0));
     logical();
     arithmetic();
     bit();

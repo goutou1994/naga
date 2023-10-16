@@ -16,9 +16,9 @@ metal::float4 builtins(
     metal::float4 s3_ = metal::select(v_f32_one, v_f32_zero, metal::bool4(false, false, false, false));
     metal::float4 m1_ = metal::mix(v_f32_zero, v_f32_one, v_f32_half);
     metal::float4 m2_ = metal::mix(v_f32_zero, v_f32_one, 0.1);
-    float b1_ = as_type<float>(v_i32_one.x);
+    float b1_ = as_type<float>(1);
     metal::float4 b2_ = as_type<metal::float4>(v_i32_one);
-    metal::int4 v_i32_zero = static_cast<metal::int4>(v_f32_zero);
+    metal::int4 v_i32_zero = metal::int4(0, 0, 0, 0);
     return ((((static_cast<metal::float4>(metal::int4(s1_) + v_i32_zero) + s2_) + m1_) + m2_) + metal::float4(b1_)) + b2_;
 }
 
@@ -31,8 +31,7 @@ metal::float4 splat(
 
 metal::float2 splat_assignment(
 ) {
-    metal::float2 a = {};
-    a = metal::float2(2.0);
+    metal::float2 a = metal::float2(2.0);
     metal::float2 _e4 = a;
     a = _e4 + metal::float2(1.0);
     metal::float2 _e8 = a;
@@ -64,6 +63,7 @@ void logical(
 
 void arithmetic(
 ) {
+    float neg0_1 = -(1.0);
     metal::int2 neg1_1 = -(metal::int2(1));
     metal::float2 neg2_ = -(metal::float2(1.0));
     int add0_ = 2 + 1;
@@ -208,58 +208,58 @@ void comparison(
 void assignment(
 ) {
     int a_1 = {};
-    metal::int3 vec0_ = {};
+    metal::int3 vec0_ = metal::int3 {};
     a_1 = 1;
-    int _e3 = a_1;
-    a_1 = _e3 + 1;
-    int _e6 = a_1;
-    a_1 = _e6 - 1;
-    int _e8 = a_1;
+    int _e5 = a_1;
+    a_1 = _e5 + 1;
+    int _e7 = a_1;
+    a_1 = _e7 - 1;
     int _e9 = a_1;
-    a_1 = _e9 * _e8;
-    int _e11 = a_1;
+    int _e10 = a_1;
+    a_1 = _e10 * _e9;
     int _e12 = a_1;
-    a_1 = _e12 / _e11;
+    int _e13 = a_1;
+    a_1 = _e13 / _e12;
     int _e15 = a_1;
     a_1 = _e15 % 1;
-    int _e18 = a_1;
-    a_1 = _e18 & 0;
+    int _e17 = a_1;
+    a_1 = _e17 & 0;
+    int _e19 = a_1;
+    a_1 = _e19 | 0;
     int _e21 = a_1;
-    a_1 = _e21 | 0;
-    int _e24 = a_1;
-    a_1 = _e24 ^ 0;
-    int _e27 = a_1;
-    a_1 = _e27 << 2u;
-    int _e30 = a_1;
-    a_1 = _e30 >> 1u;
-    int _e33 = a_1;
-    a_1 = _e33 + 1;
-    int _e36 = a_1;
-    a_1 = _e36 - 1;
-    vec0_ = metal::int3 {};
-    int _e43 = vec0_.y;
-    vec0_.y = _e43 + 1;
-    int _e48 = vec0_.y;
-    vec0_.y = _e48 - 1;
+    a_1 = _e21 ^ 0;
+    int _e23 = a_1;
+    a_1 = _e23 << 2u;
+    int _e25 = a_1;
+    a_1 = _e25 >> 1u;
+    int _e28 = a_1;
+    a_1 = _e28 + 1;
+    int _e31 = a_1;
+    a_1 = _e31 - 1;
+    int _e37 = vec0_[1];
+    vec0_[1] = _e37 + 1;
+    int _e41 = vec0_[1];
+    vec0_[1] = _e41 - 1;
     return;
 }
 
 void negation_avoids_prefix_decrement(
 ) {
-    int p1_ = -(-2);
-    int p2_ = -(-3);
-    int p3_ = -(-(4));
-    int p4_ = -(-(-5));
-    int p5_ = -(-(-(-(6))));
-    int p6_ = -(-(-(-(-7))));
-    int p7_ = -(-(-(-(-8))));
+    int p0_ = -(1);
+    int p1_ = -(-(1));
+    int p2_ = -(-(1));
+    int p3_ = -(-(1));
+    int p4_ = -(-(-(1)));
+    int p5_ = -(-(-(-(1))));
+    int p6_ = -(-(-(-(-(1)))));
+    int p7_ = -(-(-(-(-(1)))));
 }
 
 kernel void main_(
 ) {
     metal::float4 _e0 = builtins();
     metal::float4 _e1 = splat();
-    metal::float3 _e4 = bool_cast(v_f32_one.xyz);
+    metal::float3 _e6 = bool_cast(metal::float3(1.0, 1.0, 1.0));
     logical();
     arithmetic();
     bit();

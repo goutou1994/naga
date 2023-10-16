@@ -124,6 +124,31 @@ pub enum ExpressionError {
     InvalidWorkGroupUniformLoadResultType(Handle<crate::Type>),
     #[error("Shader requires capability {0:?}")]
     MissingCapabilities(super::Capabilities),
+    #[error(transparent)]
+    Literal(#[from] LiteralError),
+}
+
+#[derive(Clone, Debug, thiserror::Error)]
+pub enum ConstExpressionError {
+    #[error("The expression is not a constant expression")]
+    NonConst,
+    #[error(transparent)]
+    Compose(#[from] super::ComposeError),
+    #[error("Splatting {0:?} can't be done")]
+    InvalidSplatType(Handle<crate::Expression>),
+    #[error("Type resolution failed")]
+    Type(#[from] ResolveError),
+    #[error(transparent)]
+    Literal(#[from] LiteralError),
+}
+
+#[derive(Clone, Debug, thiserror::Error)]
+#[cfg_attr(test, derive(PartialEq))]
+pub enum LiteralError {
+    #[error("Float literal is NaN")]
+    NaN,
+    #[error("Float literal is infinite")]
+    Infinity,
 }
 
 #[cfg(feature = "validate")]
@@ -158,11 +183,14 @@ impl super::Validator {
         handle: Handle<crate::Expression>,
         gctx: crate::proc::GlobalCtx,
         mod_info: &ModuleInfo,
-    ) -> Result<(), super::ConstExpressionError> {
+    ) -> Result<(), ConstExpressionError> {
         use crate::Expression as E;
 
         match gctx.const_expressions[handle] {
-            E::Literal(_) | E::Constant(_) | E::ZeroValue(_) => {}
+            E::Literal(literal) => {
+                validate_literal(literal)?;
+            }
+            E::Constant(_) | E::ZeroValue(_) => {}
             E::Compose { ref components, ty } => {
                 validate_compose(
                     ty,
@@ -170,6 +198,10 @@ impl super::Validator {
                     components.iter().map(|&handle| mod_info[handle].clone()),
                 )?;
             }
+            E::Splat { value, .. } => match *mod_info[value].inner_with(gctx.types) {
+                crate::TypeInner::Scalar { .. } => {}
+                _ => return Err(super::ConstExpressionError::InvalidSplatType(value)),
+            },
             _ => return Err(super::ConstExpressionError::NonConst),
         }
 
@@ -310,7 +342,11 @@ impl super::Validator {
                 }
                 ShaderStages::all()
             }
-            E::Literal(_) | E::Constant(_) | E::ZeroValue(_) => ShaderStages::all(),
+            E::Literal(literal) => {
+                validate_literal(literal)?;
+                ShaderStages::all()
+            }
+            E::Constant(_) | E::ZeroValue(_) => ShaderStages::all(),
             E::Compose { ref components, ty } => {
                 validate_compose(
                     ty,
@@ -492,7 +528,7 @@ impl super::Validator {
                             } => {}
                             _ => return Err(ExpressionError::InvalidSampleLevelBiasType(expr)),
                         }
-                        ShaderStages::all()
+                        ShaderStages::FRAGMENT
                     }
                     crate::SampleLevel::Gradient { x, y } => {
                         match resolver[x] {
@@ -1528,4 +1564,26 @@ impl super::Validator {
             _ => Err(ExpressionError::ExpectedGlobalVariable),
         }
     }
+}
+
+pub fn validate_literal(literal: crate::Literal) -> Result<(), LiteralError> {
+    let is_nan = match literal {
+        crate::Literal::F64(v) => v.is_nan(),
+        crate::Literal::F32(v) => v.is_nan(),
+        _ => false,
+    };
+    if is_nan {
+        return Err(LiteralError::NaN);
+    }
+
+    let is_infinite = match literal {
+        crate::Literal::F64(v) => v.is_infinite(),
+        crate::Literal::F32(v) => v.is_infinite(),
+        _ => false,
+    };
+    if is_infinite {
+        return Err(LiteralError::Infinity);
+    }
+
+    Ok(())
 }

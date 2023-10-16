@@ -58,6 +58,8 @@ pub enum LocalVariableError {
     InvalidType(Handle<crate::Type>),
     #[error("Initializer doesn't match the variable type")]
     InitializerType,
+    #[error("Initializer is not const")]
+    NonConstInitializer,
 }
 
 #[derive(Clone, Debug, thiserror::Error)]
@@ -941,25 +943,27 @@ impl super::Validator {
         &self,
         var: &crate::LocalVariable,
         gctx: crate::proc::GlobalCtx,
-        mod_info: &ModuleInfo,
+        fun_info: &FunctionInfo,
+        expression_constness: &crate::proc::ExpressionConstnessTracker,
     ) -> Result<(), LocalVariableError> {
         log::debug!("var {:?}", var);
         let type_info = self
             .types
             .get(var.ty.index())
             .ok_or(LocalVariableError::InvalidType(var.ty))?;
-        if !type_info
-            .flags
-            .contains(super::TypeFlags::DATA | super::TypeFlags::SIZED)
-        {
+        if !type_info.flags.contains(super::TypeFlags::CONSTRUCTIBLE) {
             return Err(LocalVariableError::InvalidType(var.ty));
         }
 
         if let Some(init) = var.init {
             let decl_ty = &gctx.types[var.ty].inner;
-            let init_ty = mod_info[init].inner_with(gctx.types);
+            let init_ty = fun_info[init].ty.inner_with(gctx.types);
             if !decl_ty.equivalent(init_ty, gctx.types) {
                 return Err(LocalVariableError::InitializerType);
+            }
+
+            if !expression_constness.is_const(init) {
+                return Err(LocalVariableError::NonConstInitializer);
             }
         }
 
@@ -977,8 +981,12 @@ impl super::Validator {
         let mut info = mod_info.process_function(fun, module, self.flags, self.capabilities)?;
 
         #[cfg(feature = "validate")]
+        let expression_constness =
+            crate::proc::ExpressionConstnessTracker::from_arena(&fun.expressions);
+
+        #[cfg(feature = "validate")]
         for (var_handle, var) in fun.local_variables.iter() {
-            self.validate_local_var(var, module.to_ctx(), mod_info)
+            self.validate_local_var(var, module.to_ctx(), &info, &expression_constness)
                 .map_err(|source| {
                     FunctionError::LocalVariable {
                         handle: var_handle,

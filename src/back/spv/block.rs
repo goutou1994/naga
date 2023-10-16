@@ -243,22 +243,51 @@ impl<'w> BlockContext<'w> {
                 self.writer.constant_ids[init.index()]
             }
             crate::Expression::ZeroValue(_) => self.writer.get_constant_null(result_type_id),
-            crate::Expression::Compose {
-                ty: _,
-                ref components,
-            } => {
+            crate::Expression::Compose { ty, ref components } => {
                 self.temp_list.clear();
-                for &component in components {
-                    self.temp_list.push(self.cached[component]);
-                }
+                if self.expression_constness.is_const(expr_handle) {
+                    self.temp_list.extend(
+                        crate::proc::flatten_compose(
+                            ty,
+                            components,
+                            &self.ir_function.expressions,
+                            &self.ir_module.types,
+                        )
+                        .map(|component| self.cached[component]),
+                    );
+                    self.writer
+                        .get_constant_composite(LookupType::Handle(ty), &self.temp_list)
+                } else {
+                    self.temp_list
+                        .extend(components.iter().map(|&component| self.cached[component]));
 
-                let id = self.gen_id();
-                block.body.push(Instruction::composite_construct(
-                    result_type_id,
-                    id,
-                    &self.temp_list,
-                ));
-                id
+                    let id = self.gen_id();
+                    block.body.push(Instruction::composite_construct(
+                        result_type_id,
+                        id,
+                        &self.temp_list,
+                    ));
+                    id
+                }
+            }
+            crate::Expression::Splat { size, value } => {
+                let value_id = self.cached[value];
+                let components = &[value_id; 4][..size as usize];
+
+                if self.expression_constness.is_const(expr_handle) {
+                    let ty = self
+                        .writer
+                        .get_expression_lookup_type(&self.fun_info[expr_handle].ty);
+                    self.writer.get_constant_composite(ty, components)
+                } else {
+                    let id = self.gen_id();
+                    block.body.push(Instruction::composite_construct(
+                        result_type_id,
+                        id,
+                        components,
+                    ));
+                    id
+                }
             }
             crate::Expression::Access { base, index: _ } if self.is_intermediate(base) => {
                 // See `is_intermediate`; we'll handle this later in
@@ -404,17 +433,6 @@ impl<'w> BlockContext<'w> {
             }
             crate::Expression::GlobalVariable(handle) => {
                 self.writer.global_variables[handle.index()].access_id
-            }
-            crate::Expression::Splat { size, value } => {
-                let value_id = self.cached[value];
-                let components = [value_id; 4];
-                let id = self.gen_id();
-                block.body.push(Instruction::composite_construct(
-                    result_type_id,
-                    id,
-                    &components[..size as usize],
-                ));
-                id
             }
             crate::Expression::Swizzle {
                 size,
@@ -1758,7 +1776,10 @@ impl<'w> BlockContext<'w> {
             match *statement {
                 crate::Statement::Emit(ref range) => {
                     for handle in range.clone() {
-                        self.cache_expression_value(handle, &mut block)?;
+                        // omit const expressions as we've already cached those
+                        if !self.expression_constness.is_const(handle) {
+                            self.cache_expression_value(handle, &mut block)?;
+                        }
                     }
                 }
                 crate::Statement::Block(ref block_statements) => {

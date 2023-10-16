@@ -9,9 +9,9 @@ fn builtins() -> vec4<f32> {
     let s3_ = select(v_f32_one, v_f32_zero, vec4<bool>(false, false, false, false));
     let m1_ = mix(v_f32_zero, v_f32_one, v_f32_half);
     let m2_ = mix(v_f32_zero, v_f32_one, 0.1);
-    let b1_ = bitcast<f32>(v_i32_one.x);
+    let b1_ = bitcast<f32>(1);
     let b2_ = bitcast<vec4<f32>>(v_i32_one);
-    let v_i32_zero = vec4<i32>(v_f32_zero);
+    let v_i32_zero = vec4<i32>(0, 0, 0, 0);
     return (((((vec4<f32>((vec4(s1_) + v_i32_zero)) + s2_) + m1_) + m2_) + vec4(b1_)) + b2_);
 }
 
@@ -22,9 +22,8 @@ fn splat() -> vec4<f32> {
 }
 
 fn splat_assignment() -> vec2<f32> {
-    var a: vec2<f32>;
+    var a: vec2<f32> = vec2(2.0);
 
-    a = vec2(2.0);
     let _e4 = a;
     a = (_e4 + vec2(1.0));
     let _e8 = a;
@@ -52,6 +51,7 @@ fn logical() {
 }
 
 fn arithmetic() {
+    let neg0_1 = -(1.0);
     let neg1_1 = -(vec2(1));
     let neg2_ = -(vec2(1.0));
     let add0_ = (2 + 1);
@@ -128,8 +128,8 @@ fn arithmetic() {
 fn bit() {
     let flip0_ = ~(1);
     let flip1_ = ~(1u);
-    let flip2_ = !(vec2(1));
-    let flip3_ = !(vec3(1u));
+    let flip2_ = ~(vec2(1));
+    let flip3_ = ~(vec3(1u));
     let or0_ = (2 | 1);
     let or1_ = (2u | 1u);
     let or2_ = (vec2(2) | vec2(1));
@@ -193,58 +193,58 @@ fn comparison() {
 
 fn assignment() {
     var a_1: i32;
-    var vec0_: vec3<i32>;
+    var vec0_: vec3<i32> = vec3<i32>();
 
     a_1 = 1;
-    let _e3 = a_1;
-    a_1 = (_e3 + 1);
-    let _e6 = a_1;
-    a_1 = (_e6 - 1);
-    let _e8 = a_1;
+    let _e5 = a_1;
+    a_1 = (_e5 + 1);
+    let _e7 = a_1;
+    a_1 = (_e7 - 1);
     let _e9 = a_1;
-    a_1 = (_e9 * _e8);
-    let _e11 = a_1;
+    let _e10 = a_1;
+    a_1 = (_e10 * _e9);
     let _e12 = a_1;
-    a_1 = (_e12 / _e11);
+    let _e13 = a_1;
+    a_1 = (_e13 / _e12);
     let _e15 = a_1;
     a_1 = (_e15 % 1);
-    let _e18 = a_1;
-    a_1 = (_e18 & 0);
+    let _e17 = a_1;
+    a_1 = (_e17 & 0);
+    let _e19 = a_1;
+    a_1 = (_e19 | 0);
     let _e21 = a_1;
-    a_1 = (_e21 | 0);
-    let _e24 = a_1;
-    a_1 = (_e24 ^ 0);
-    let _e27 = a_1;
-    a_1 = (_e27 << 2u);
-    let _e30 = a_1;
-    a_1 = (_e30 >> 1u);
-    let _e33 = a_1;
-    a_1 = (_e33 + 1);
-    let _e36 = a_1;
-    a_1 = (_e36 - 1);
-    vec0_ = vec3<i32>();
-    let _e43 = vec0_.y;
-    vec0_.y = (_e43 + 1);
-    let _e48 = vec0_.y;
-    vec0_.y = (_e48 - 1);
+    a_1 = (_e21 ^ 0);
+    let _e23 = a_1;
+    a_1 = (_e23 << 2u);
+    let _e25 = a_1;
+    a_1 = (_e25 >> 1u);
+    let _e28 = a_1;
+    a_1 = (_e28 + 1);
+    let _e31 = a_1;
+    a_1 = (_e31 - 1);
+    let _e37 = vec0_[1];
+    vec0_[1] = (_e37 + 1);
+    let _e41 = vec0_[1];
+    vec0_[1] = (_e41 - 1);
     return;
 }
 
 fn negation_avoids_prefix_decrement() {
-    let p1_ = -(-2);
-    let p2_ = -(-3);
-    let p3_ = -(-(4));
-    let p4_ = -(-(-5));
-    let p5_ = -(-(-(-(6))));
-    let p6_ = -(-(-(-(-7))));
-    let p7_ = -(-(-(-(-8))));
+    let p0_ = -(1);
+    let p1_ = -(-(1));
+    let p2_ = -(-(1));
+    let p3_ = -(-(1));
+    let p4_ = -(-(-(1)));
+    let p5_ = -(-(-(-(1))));
+    let p6_ = -(-(-(-(-(1)))));
+    let p7_ = -(-(-(-(-(1)))));
 }
 
 @compute @workgroup_size(1, 1, 1) 
 fn main() {
     let _e0 = builtins();
     let _e1 = splat();
-    let _e4 = bool_cast(v_f32_one.xyz);
+    let _e6 = bool_cast(vec3<f32>(1.0, 1.0, 1.0));
     logical();
     arithmetic();
     bit();

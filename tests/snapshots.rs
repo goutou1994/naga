@@ -7,6 +7,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+const CRATE_ROOT: &str = env!("CARGO_MANIFEST_DIR");
 const BASE_DIR_IN: &str = "tests/in";
 const BASE_DIR_OUT: &str = "tests/out";
 
@@ -88,16 +89,176 @@ struct Parameters {
     glsl_multiview: Option<std::num::NonZeroU32>,
 }
 
-#[allow(unused_variables)]
-fn check_targets(module: &naga::Module, name: &str, targets: Targets, source_code: Option<&str>) {
-    let root = env!("CARGO_MANIFEST_DIR");
-    let filepath = format!("{root}/{BASE_DIR_IN}/{name}.param.ron");
-    let params = match fs::read_to_string(&filepath) {
-        Ok(string) => {
-            ron::de::from_str(&string).expect(&format!("Couldn't parse param file: {}", filepath))
+/// Information about a shader input file.
+#[derive(Debug)]
+struct Input {
+    /// The subdirectory of `tests/in` to which this input belongs, if any.
+    ///
+    /// If the subdirectory is omitted, we assume that the output goes
+    /// to "wgsl".
+    subdirectory: Option<PathBuf>,
+
+    /// The input filename name, without a directory.
+    file_name: PathBuf,
+
+    /// True if output filenames should add the output extension on top of
+    /// `file_name`'s existing extension, rather than replacing it.
+    ///
+    /// This is used by `convert_glsl_folder`, which wants to take input files
+    /// like `210-bevy-2d-shader.frag` and just add `.wgsl` to it, producing
+    /// `210-bevy-2d-shader.frag.wgsl`.
+    keep_input_extension: bool,
+}
+
+impl Input {
+    /// Read an input file and its corresponding parameters file.
+    ///
+    /// Given `input`, the relative path of a shader input file, return
+    /// a `Source` value containing its path, code, and parameters.
+    ///
+    /// The `input` path is interpreted relative to the `BASE_DIR_IN`
+    /// subdirectory of the directory given by the `CARGO_MANIFEST_DIR`
+    /// environment variable.
+    fn new(subdirectory: Option<&str>, name: &str, extension: &str) -> Input {
+        Input {
+            subdirectory: subdirectory.map(PathBuf::from),
+            // Don't wipe out any extensions on `name`, as
+            // `with_extension` would do.
+            file_name: PathBuf::from(format!("{name}.{extension}")),
+            keep_input_extension: false,
         }
-        Err(_) => Parameters::default(),
-    };
+    }
+
+    /// Return an iterator that produces an `Input` for each entry in `subdirectory`.
+    fn files_in_dir(subdirectory: &str) -> impl Iterator<Item = Input> + 'static {
+        let subdirectory = subdirectory.to_string();
+        let mut input_directory = Path::new(env!("CARGO_MANIFEST_DIR")).join(BASE_DIR_IN);
+        input_directory.push(&subdirectory);
+        match std::fs::read_dir(&input_directory) {
+            Ok(entries) => entries.map(move |result| {
+                let entry = result.expect("error reading directory");
+                let file_name = PathBuf::from(entry.file_name());
+                let extension = file_name
+                    .extension()
+                    .expect("all files in snapshot input directory should have extensions");
+                let input = Input::new(
+                    Some(&subdirectory),
+                    &file_name.file_stem().unwrap().to_str().unwrap(),
+                    &extension.to_str().unwrap(),
+                );
+                input
+            }),
+            Err(err) => {
+                panic!(
+                    "Error opening directory '{}': {}",
+                    input_directory.display(),
+                    err
+                );
+            }
+        }
+    }
+
+    /// Return the path to the input directory.
+    fn input_directory(&self) -> PathBuf {
+        let mut dir = Path::new(CRATE_ROOT).join(BASE_DIR_IN);
+        if let Some(ref subdirectory) = self.subdirectory {
+            dir.push(subdirectory);
+        }
+        dir
+    }
+
+    /// Return the path to the output directory.
+    fn output_directory(&self, subdirectory: &str) -> PathBuf {
+        let mut dir = Path::new(CRATE_ROOT).join(BASE_DIR_OUT);
+        dir.push(subdirectory);
+        dir
+    }
+
+    /// Return the path to the input file.
+    fn input_path(&self) -> PathBuf {
+        let mut input = self.input_directory();
+        input.push(&self.file_name);
+        input
+    }
+
+    fn output_path(&self, subdirectory: &str, extension: &str) -> PathBuf {
+        let mut output = self.output_directory(subdirectory);
+        if self.keep_input_extension {
+            let mut file_name = self.file_name.as_os_str().to_owned();
+            file_name.push(".");
+            file_name.push(extension);
+            output.push(&file_name);
+        } else {
+            output.push(&self.file_name);
+            output.set_extension(extension);
+        }
+        output
+    }
+
+    /// Return the contents of the input file as a string.
+    fn read_source(&self) -> String {
+        println!("Processing '{}'", self.file_name.display());
+        let input_path = self.input_path();
+        match fs::read_to_string(&input_path) {
+            Ok(source) => source,
+            Err(err) => {
+                panic!(
+                    "Couldn't read shader input file `{}`: {}",
+                    input_path.display(),
+                    err
+                );
+            }
+        }
+    }
+
+    /// Return the contents of the input file as a vector of bytes.
+    fn read_bytes(&self) -> Vec<u8> {
+        println!("Processing '{}'", self.file_name.display());
+        let input_path = self.input_path();
+        match fs::read(&input_path) {
+            Ok(bytes) => bytes,
+            Err(err) => {
+                panic!(
+                    "Couldn't read shader input file `{}`: {}",
+                    input_path.display(),
+                    err
+                );
+            }
+        }
+    }
+
+    /// Return this input's parameter file, parsed.
+    fn read_parameters(&self) -> Parameters {
+        let mut param_path = self.input_path();
+        param_path.set_extension("param.ron");
+        match fs::read_to_string(&param_path) {
+            Ok(string) => ron::de::from_str(&string).expect(&format!(
+                "Couldn't parse param file: {}",
+                param_path.display()
+            )),
+            Err(_) => Parameters::default(),
+        }
+    }
+
+    /// Write `data` to a file corresponding to this input file in
+    /// `subdirectory`, with `extension`.
+    fn write_output_file(&self, subdirectory: &str, extension: &str, data: impl AsRef<[u8]>) {
+        let output_path = self.output_path(subdirectory, extension);
+        if let Err(err) = fs::write(&output_path, data) {
+            panic!("Error writing {}: {}", output_path.display(), err);
+        }
+    }
+}
+
+#[allow(unused_variables)]
+fn check_targets(
+    input: &Input,
+    module: &mut naga::Module,
+    targets: Targets,
+    source_code: Option<&str>,
+) {
+    let params = input.read_parameters();
+    let name = &input.file_name;
 
     let capabilities = if params.god_mode {
         naga::valid::Capabilities::all()
@@ -105,27 +266,49 @@ fn check_targets(module: &naga::Module, name: &str, targets: Targets, source_cod
         naga::valid::Capabilities::default()
     };
 
-    let dest = PathBuf::from(root).join(BASE_DIR_OUT);
-
     #[cfg(feature = "serialize")]
     {
         if targets.contains(Targets::IR) {
             let config = ron::ser::PrettyConfig::default().new_line("\n".to_string());
             let string = ron::ser::to_string_pretty(module, config).unwrap();
-            fs::write(dest.join(format!("ir/{name}.ron")), string).unwrap();
+            input.write_output_file("ir", "ron", string);
         }
     }
 
     let info = naga::valid::Validator::new(naga::valid::ValidationFlags::all(), capabilities)
         .validate(module)
-        .expect(&format!("Naga module validation failed on test '{name}'"));
+        .expect(&format!(
+            "Naga module validation failed on test '{}'",
+            name.display()
+        ));
+
+    #[cfg(feature = "compact")]
+    let info = {
+        naga::compact::compact(module);
+
+        #[cfg(feature = "serialize")]
+        {
+            if targets.contains(Targets::IR) {
+                let config = ron::ser::PrettyConfig::default().new_line("\n".to_string());
+                let string = ron::ser::to_string_pretty(module, config).unwrap();
+                input.write_output_file("ir", "compact.ron", string);
+            }
+        }
+
+        naga::valid::Validator::new(naga::valid::ValidationFlags::all(), capabilities)
+            .validate(module)
+            .expect(&format!(
+                "Post-compaction module validation failed on test '{}'",
+                name.display()
+            ))
+    };
 
     #[cfg(feature = "serialize")]
     {
         if targets.contains(Targets::ANALYSIS) {
             let config = ron::ser::PrettyConfig::default().new_line("\n".to_string());
             let string = ron::ser::to_string_pretty(&info, config).unwrap();
-            fs::write(dest.join(format!("analysis/{name}.info.ron")), string).unwrap();
+            input.write_output_file("analysis", "info.ron", string);
         }
     }
 
@@ -134,7 +317,7 @@ fn check_targets(module: &naga::Module, name: &str, targets: Targets, source_cod
         let debug_info = if cfg!(feature = "span") {
             source_code.map(|code| naga::back::spv::DebugInfo {
                 source_code: code,
-                file_name: name,
+                file_name: name.as_ref(),
             })
         } else {
             None
@@ -142,10 +325,9 @@ fn check_targets(module: &naga::Module, name: &str, targets: Targets, source_cod
 
         if targets.contains(Targets::SPIRV) {
             write_output_spv(
+                input,
                 module,
                 &info,
-                &dest,
-                name,
                 debug_info,
                 &params.spv,
                 params.bounds_check_policies,
@@ -156,10 +338,9 @@ fn check_targets(module: &naga::Module, name: &str, targets: Targets, source_cod
     {
         if targets.contains(Targets::METAL) {
             write_output_msl(
+                input,
                 module,
                 &info,
-                &dest,
-                name,
                 &params.msl,
                 &params.msl_pipeline,
                 params.bounds_check_policies,
@@ -174,10 +355,9 @@ fn check_targets(module: &naga::Module, name: &str, targets: Targets, source_cod
                     continue;
                 }
                 write_output_glsl(
+                    input,
                     module,
                     &info,
-                    &dest,
-                    name,
                     ep.stage,
                     &ep.name,
                     &params.glsl,
@@ -191,37 +371,34 @@ fn check_targets(module: &naga::Module, name: &str, targets: Targets, source_cod
     {
         if targets.contains(Targets::DOT) {
             let string = naga::back::dot::write(module, Some(&info), Default::default()).unwrap();
-            fs::write(dest.join(format!("dot/{name}.dot")), string).unwrap();
+            input.write_output_file("dot", "dot", string);
         }
     }
     #[cfg(all(feature = "deserialize", feature = "hlsl-out"))]
     {
         if targets.contains(Targets::HLSL) {
-            write_output_hlsl(module, &info, &dest, name, &params.hlsl);
+            write_output_hlsl(input, module, &info, &params.hlsl);
         }
     }
     #[cfg(all(feature = "deserialize", feature = "wgsl-out"))]
     {
         if targets.contains(Targets::WGSL) {
-            write_output_wgsl(module, &info, &dest, name, &params.wgsl);
+            write_output_wgsl(input, module, &info, &params.wgsl);
         }
     }
 }
 
 #[cfg(feature = "spv-out")]
 fn write_output_spv(
+    input: &Input,
     module: &naga::Module,
     info: &naga::valid::ModuleInfo,
-    destination: &Path,
-    file_name: &str,
     debug_info: Option<naga::back::spv::DebugInfo>,
     params: &SpirvOutParameters,
     bounds_check_policies: naga::proc::BoundsCheckPolicies,
 ) {
     use naga::back::spv;
     use rspirv::binary::Disassemble;
-
-    println!("writing SPIR-V");
 
     let mut flags = spv::WriterFlags::LABEL_VARYINGS;
     flags.set(spv::WriterFlags::DEBUG, params.debug);
@@ -253,37 +430,31 @@ fn write_output_spv(
                 shader_stage: ep.stage,
             };
             write_output_spv_inner(
+                input,
                 module,
                 info,
                 &options,
                 Some(&pipeline_options),
-                destination,
-                format!("spv/{}.{}.spvasm", file_name, ep.name),
+                &format!("{}.spvasm", ep.name),
             );
         }
     } else {
-        write_output_spv_inner(
-            module,
-            info,
-            &options,
-            None,
-            destination,
-            format!("spv/{file_name}.spvasm"),
-        );
+        write_output_spv_inner(input, module, info, &options, None, "spvasm");
     }
 }
 
 #[cfg(feature = "spv-out")]
 fn write_output_spv_inner(
+    input: &Input,
     module: &naga::Module,
     info: &naga::valid::ModuleInfo,
     options: &naga::back::spv::Options<'_>,
     pipeline_options: Option<&naga::back::spv::PipelineOptions>,
-    destination: &Path,
-    path: String,
+    extension: &str,
 ) {
     use naga::back::spv;
     use rspirv::binary::Disassemble;
+    println!("Generating SPIR-V for {:?}", input.file_name);
     let spv = spv::write_vec(module, info, options, pipeline_options).unwrap();
     let dis = rspirv::dr::load_words(spv)
         .expect("Produced invalid SPIR-V")
@@ -295,22 +466,21 @@ fn write_output_spv_inner(
     } else {
         dis
     };
-    fs::write(destination.join(path), dis).unwrap();
+    input.write_output_file("spv", extension, dis);
 }
 
 #[cfg(feature = "msl-out")]
 fn write_output_msl(
+    input: &Input,
     module: &naga::Module,
     info: &naga::valid::ModuleInfo,
-    destination: &Path,
-    file_name: &str,
     options: &naga::back::msl::Options,
     pipeline_options: &naga::back::msl::PipelineOptions,
     bounds_check_policies: naga::proc::BoundsCheckPolicies,
 ) {
     use naga::back::msl;
 
-    println!("writing MSL");
+    println!("generating MSL");
 
     let mut options = options.clone();
     options.bounds_check_policies = bounds_check_policies;
@@ -323,16 +493,15 @@ fn write_output_msl(
         }
     }
 
-    fs::write(destination.join(format!("msl/{file_name}.msl")), string).unwrap();
+    input.write_output_file("msl", "msl", string);
 }
 
 #[cfg(feature = "glsl-out")]
 #[allow(clippy::too_many_arguments)]
 fn write_output_glsl(
+    input: &Input,
     module: &naga::Module,
     info: &naga::valid::ModuleInfo,
-    destination: &Path,
-    file_name: &str,
     stage: naga::ShaderStage,
     ep_name: &str,
     options: &naga::back::glsl::Options,
@@ -341,7 +510,7 @@ fn write_output_glsl(
 ) {
     use naga::back::glsl;
 
-    println!("writing GLSL");
+    println!("generating GLSL");
 
     let pipeline_options = glsl::PipelineOptions {
         shader_stage: stage,
@@ -361,31 +530,27 @@ fn write_output_glsl(
     .expect("GLSL init failed");
     writer.write().expect("GLSL write failed");
 
-    fs::write(
-        destination.join(format!("glsl/{file_name}.{ep_name}.{stage:?}.glsl")),
-        buffer,
-    )
-    .unwrap();
+    let extension = format!("{ep_name}.{stage:?}.glsl");
+    input.write_output_file("glsl", &extension, buffer);
 }
 
 #[cfg(feature = "hlsl-out")]
 fn write_output_hlsl(
+    input: &Input,
     module: &naga::Module,
     info: &naga::valid::ModuleInfo,
-    destination: &Path,
-    file_name: &str,
     options: &naga::back::hlsl::Options,
 ) {
     use naga::back::hlsl;
     use std::fmt::Write as _;
 
-    println!("writing HLSL");
+    println!("generating HLSL");
 
     let mut buffer = String::new();
     let mut writer = hlsl::Writer::new(&mut buffer, options);
     let reflection_info = writer.write(module, info).expect("HLSL write failed");
 
-    fs::write(destination.join(format!("hlsl/{file_name}.hlsl")), buffer).unwrap();
+    input.write_output_file("hlsl", "hlsl", buffer);
 
     // We need a config file for validation script
     // This file contains an info about profiles (shader stages) contains inside generated shader
@@ -411,29 +576,26 @@ fn write_output_hlsl(
         });
     }
 
-    config
-        .to_file(destination.join(format!("hlsl/{file_name}.ron")))
-        .unwrap();
+    config.to_file(&input.output_path("hlsl", "ron")).unwrap();
 }
 
 #[cfg(feature = "wgsl-out")]
 fn write_output_wgsl(
+    input: &Input,
     module: &naga::Module,
     info: &naga::valid::ModuleInfo,
-    destination: &Path,
-    file_name: &str,
     params: &WgslOutParameters,
 ) {
     use naga::back::wgsl;
 
-    println!("writing WGSL");
+    println!("generating WGSL");
 
     let mut flags = wgsl::WriterFlags::empty();
     flags.set(wgsl::WriterFlags::EXPLICIT_TYPES, params.explicit_types);
 
     let string = wgsl::write_string(module, info, flags).expect("WGSL write failed");
 
-    fs::write(destination.join(format!("wgsl/{file_name}.wgsl")), string).unwrap();
+    input.write_output_file("wgsl", "wgsl", string);
 }
 
 #[cfg(feature = "wgsl-in")]
@@ -441,7 +603,6 @@ fn write_output_wgsl(
 fn convert_wgsl() {
     let _ = env_logger::try_init();
 
-    let root = env!("CARGO_MANIFEST_DIR");
     let inputs = [
         // TODO: merge array-in-ctor and array-in-function-return-type tests after fix HLSL issue https://github.com/gfx-rs/naga/issues/1930
         (
@@ -579,7 +740,6 @@ fn convert_wgsl() {
             "math-functions",
             Targets::SPIRV | Targets::METAL | Targets::GLSL | Targets::HLSL | Targets::WGSL,
         ),
-        ("cubeArrayShadow", Targets::GLSL),
         (
             "binding-arrays",
             Targets::WGSL | Targets::HLSL | Targets::METAL | Targets::SPIRV,
@@ -616,16 +776,20 @@ fn convert_wgsl() {
             "constructors",
             Targets::SPIRV | Targets::METAL | Targets::GLSL | Targets::HLSL | Targets::WGSL,
         ),
+        ("msl-varyings", Targets::METAL),
+        (
+            "const-exprs",
+            Targets::SPIRV | Targets::METAL | Targets::GLSL | Targets::HLSL | Targets::WGSL,
+        ),
     ];
 
     for &(name, targets) in inputs.iter() {
-        println!("Processing '{name}'");
         // WGSL shaders lives in root dir as a privileged.
-        let file = fs::read_to_string(format!("{root}/{BASE_DIR_IN}/{name}.wgsl"))
-            .expect("Couldn't find wgsl file");
-        match naga::front::wgsl::parse_str(&file) {
-            Ok(module) => check_targets(&module, name, targets, None),
-            Err(e) => panic!("{}", e.emit_to_string(&file)),
+        let input = Input::new(None, name, "wgsl");
+        let source = input.read_source();
+        match naga::front::wgsl::parse_str(&source) {
+            Ok(mut module) => check_targets(&input, &mut module, targets, None),
+            Err(e) => panic!("{}", e.emit_to_string(&source)),
         }
     }
 
@@ -636,13 +800,12 @@ fn convert_wgsl() {
             ("debug-symbol-terrain", Targets::SPIRV),
         ];
         for &(name, targets) in inputs.iter() {
-            println!("Processing '{name}'");
             // WGSL shaders lives in root dir as a privileged.
-            let file = fs::read_to_string(format!("{root}/{BASE_DIR_IN}/{name}.wgsl"))
-                .expect("Couldn't find wgsl file");
-            match naga::front::wgsl::parse_str(&file) {
-                Ok(module) => check_targets(&module, name, targets, Some(&file)),
-                Err(e) => panic!("{}", e.emit_to_string(&file)),
+            let input = Input::new(None, name, "wgsl");
+            let source = input.read_source();
+            match naga::front::wgsl::parse_str(&source) {
+                Ok(mut module) => check_targets(&input, &mut module, targets, Some(&source)),
+                Err(e) => panic!("{}", e.emit_to_string(&source)),
             }
         }
     }
@@ -652,11 +815,9 @@ fn convert_wgsl() {
 fn convert_spv(name: &str, adjust_coordinate_space: bool, targets: Targets) {
     let _ = env_logger::try_init();
 
-    let root = env!("CARGO_MANIFEST_DIR");
-
-    println!("Processing '{name}'");
-    let module = naga::front::spv::parse_u8_slice(
-        &fs::read(format!("{root}/{BASE_DIR_IN}/spv/{name}.spv")).expect("Couldn't find spv file"),
+    let input = Input::new(Some("spv"), name, "spv");
+    let mut module = naga::front::spv::parse_u8_slice(
+        &input.read_bytes(),
         &naga::front::spv::Options {
             adjust_coordinate_space,
             strict_capabilities: false,
@@ -664,13 +825,7 @@ fn convert_spv(name: &str, adjust_coordinate_space: bool, targets: Targets) {
         },
     )
     .unwrap();
-    check_targets(&module, name, targets, None);
-    naga::valid::Validator::new(
-        naga::valid::ValidationFlags::all(),
-        naga::valid::Capabilities::default(),
-    )
-    .validate(&module)
-    .unwrap();
+    check_targets(&input, &mut module, targets, None);
 }
 
 #[cfg(feature = "spv-in")]
@@ -705,20 +860,19 @@ fn convert_spv_all() {
 #[cfg(feature = "glsl-in")]
 #[test]
 fn convert_glsl_variations_check() {
-    let root = env!("CARGO_MANIFEST_DIR");
-    let file = fs::read_to_string(format!("{root}/{BASE_DIR_IN}/variations.glsl"))
-        .expect("Couldn't find glsl file");
+    let input = Input::new(None, "variations", "glsl");
+    let source = input.read_source();
     let mut parser = naga::front::glsl::Frontend::default();
-    let module = parser
+    let mut module = parser
         .parse(
             &naga::front::glsl::Options {
                 stage: naga::ShaderStage::Fragment,
                 defines: Default::default(),
             },
-            &file,
+            &source,
         )
         .unwrap();
-    check_targets(&module, "variations-glsl", Targets::GLSL, None);
+    check_targets(&input, &mut module, Targets::GLSL, None);
 }
 
 #[cfg(feature = "glsl-in")]
@@ -727,23 +881,22 @@ fn convert_glsl_variations_check() {
 fn convert_glsl_folder() {
     let _ = env_logger::try_init();
 
-    let root = env!("CARGO_MANIFEST_DIR");
-
-    for entry in std::fs::read_dir(format!("{root}/{BASE_DIR_IN}/glsl")).unwrap() {
-        let entry = entry.unwrap();
-        let file_name = entry.file_name().into_string().unwrap();
-
+    for input in Input::files_in_dir("glsl") {
+        let input = Input {
+            keep_input_extension: true,
+            ..input
+        };
+        let file_name = &input.file_name;
         if file_name.ends_with(".ron") {
             // No needed to validate ron files
             continue;
         }
-        println!("Processing {file_name}");
 
         let mut parser = naga::front::glsl::Frontend::default();
         let module = parser
             .parse(
                 &naga::front::glsl::Options {
-                    stage: match entry.path().extension().and_then(|s| s.to_str()).unwrap() {
+                    stage: match file_name.extension().and_then(|s| s.to_str()).unwrap() {
                         "vert" => naga::ShaderStage::Vertex,
                         "frag" => naga::ShaderStage::Fragment,
                         "comp" => naga::ShaderStage::Compute,
@@ -751,7 +904,7 @@ fn convert_glsl_folder() {
                     },
                     defines: Default::default(),
                 },
-                &fs::read_to_string(entry.path()).expect("Couldn't find glsl file"),
+                &input.read_source(),
             )
             .unwrap();
 
@@ -764,14 +917,7 @@ fn convert_glsl_folder() {
 
         #[cfg(feature = "wgsl-out")]
         {
-            let dest = PathBuf::from(root).join(BASE_DIR_OUT);
-            write_output_wgsl(
-                &module,
-                &info,
-                &dest,
-                &file_name.replace('.', "-"),
-                &WgslOutParameters::default(),
-            );
+            write_output_wgsl(&input, &module, &info, &WgslOutParameters::default());
         }
     }
 }

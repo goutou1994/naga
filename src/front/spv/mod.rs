@@ -40,7 +40,7 @@ use function::*;
 use crate::{
     arena::{Arena, Handle, UniqueArena},
     proc::{Alignment, Layouter},
-    FastHashMap, FastHashSet,
+    FastHashMap, FastHashSet, FastIndexMap,
 };
 
 use num_traits::cast::FromPrimitive;
@@ -596,11 +596,7 @@ pub struct Frontend<I> {
     /// use that target block id.
     ///
     /// Used to preserve allocations between instruction parsing.
-    switch_cases: indexmap::IndexMap<
-        spirv::Word,
-        (BodyIndex, Vec<i32>),
-        std::hash::BuildHasherDefault<rustc_hash::FxHasher>,
-    >,
+    switch_cases: FastIndexMap<spirv::Word, (BodyIndex, Vec<i32>)>,
 
     /// Tracks access to gl_PerVertex's builtins, it is used to cull unused builtins since initializing those can
     /// affect performance and the mere presence of some of these builtins might cause backends to error since they
@@ -641,7 +637,7 @@ impl<I: Iterator<Item = u32>> Frontend<I> {
             dummy_functions: Arena::new(),
             function_call_graph: GraphMap::new(),
             options: options.clone(),
-            switch_cases: indexmap::IndexMap::default(),
+            switch_cases: FastIndexMap::default(),
             gl_per_vertex_builtin_access: FastHashSet::default(),
         }
     }
@@ -793,7 +789,7 @@ impl<I: Iterator<Item = u32>> Frontend<I> {
         id: spirv::Word,
         lookup: &LookupExpression,
         ctx: &mut BlockContext,
-        emitter: &mut super::Emitter,
+        emitter: &mut crate::proc::Emitter,
         block: &mut crate::Block,
         body_idx: BodyIndex,
     ) -> Handle<crate::Expression> {
@@ -855,7 +851,7 @@ impl<I: Iterator<Item = u32>> Frontend<I> {
     fn parse_expr_unary_op(
         &mut self,
         ctx: &mut BlockContext,
-        emitter: &mut super::Emitter,
+        emitter: &mut crate::proc::Emitter,
         block: &mut crate::Block,
         block_id: spirv::Word,
         body_idx: usize,
@@ -884,7 +880,7 @@ impl<I: Iterator<Item = u32>> Frontend<I> {
     fn parse_expr_binary_op(
         &mut self,
         ctx: &mut BlockContext,
-        emitter: &mut super::Emitter,
+        emitter: &mut crate::proc::Emitter,
         block: &mut crate::Block,
         block_id: spirv::Word,
         body_idx: usize,
@@ -918,7 +914,7 @@ impl<I: Iterator<Item = u32>> Frontend<I> {
     fn parse_expr_unary_op_sign_adjusted(
         &mut self,
         ctx: &mut BlockContext,
-        emitter: &mut super::Emitter,
+        emitter: &mut crate::proc::Emitter,
         block: &mut crate::Block,
         block_id: spirv::Word,
         body_idx: usize,
@@ -973,7 +969,7 @@ impl<I: Iterator<Item = u32>> Frontend<I> {
     fn parse_expr_binary_op_sign_adjusted(
         &mut self,
         ctx: &mut BlockContext,
-        emitter: &mut super::Emitter,
+        emitter: &mut crate::proc::Emitter,
         block: &mut crate::Block,
         block_id: spirv::Word,
         body_idx: usize,
@@ -1051,7 +1047,7 @@ impl<I: Iterator<Item = u32>> Frontend<I> {
     fn parse_expr_int_comparison(
         &mut self,
         ctx: &mut BlockContext,
-        emitter: &mut super::Emitter,
+        emitter: &mut crate::proc::Emitter,
         block: &mut crate::Block,
         block_id: spirv::Word,
         body_idx: usize,
@@ -1122,7 +1118,7 @@ impl<I: Iterator<Item = u32>> Frontend<I> {
     fn parse_expr_shift_op(
         &mut self,
         ctx: &mut BlockContext,
-        emitter: &mut super::Emitter,
+        emitter: &mut crate::proc::Emitter,
         block: &mut crate::Block,
         block_id: spirv::Word,
         body_idx: usize,
@@ -1165,7 +1161,7 @@ impl<I: Iterator<Item = u32>> Frontend<I> {
     fn parse_expr_derivative(
         &mut self,
         ctx: &mut BlockContext,
-        emitter: &mut super::Emitter,
+        emitter: &mut crate::proc::Emitter,
         block: &mut crate::Block,
         block_id: spirv::Word,
         body_idx: usize,
@@ -1296,7 +1292,7 @@ impl<I: Iterator<Item = u32>> Frontend<I> {
             })
         }
 
-        let mut emitter = super::Emitter::default();
+        let mut emitter = crate::proc::Emitter::default();
         emitter.start(ctx.expressions);
 
         // Find the `Body` to which this block contributes.
@@ -1399,7 +1395,7 @@ impl<I: Iterator<Item = u32>> Frontend<I> {
                         let init_id = self.next()?;
                         let lconst = self.lookup_constant.lookup(init_id)?;
                         Some(
-                            ctx.const_expressions
+                            ctx.expressions
                                 .append(crate::Expression::Constant(lconst.handle), span),
                         )
                     } else {
@@ -5286,7 +5282,7 @@ fn make_index_literal(
     ctx: &mut BlockContext,
     index: u32,
     block: &mut crate::Block,
-    emitter: &mut super::Emitter,
+    emitter: &mut crate::proc::Emitter,
     index_type: Handle<crate::Type>,
     index_type_id: spirv::Word,
     span: crate::Span,
