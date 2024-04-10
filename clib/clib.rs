@@ -115,13 +115,14 @@ pub fn qWEjz_klm_compile_wgsl(path: *const libc::c_char, ) -> CompileResult {
                 },
                 Err(e) => unsafe {
                     // unsafe {
-                        let c_str: *mut libc::c_void = libc::malloc(e.len());
-                        libc::memcpy(c_str, e.as_ptr() as *const libc::c_void, e.len());
+                        let c_str: *mut libc::c_char = libc::malloc(e.len() + 1) as *mut libc::c_char;
+                        libc::memcpy(c_str as *mut libc::c_void, e.as_ptr() as *const libc::c_void, e.len());
+                        *c_str.offset(e.len() as isize) = 0;
                         return CompileResult {
                             data: null(),
                             len: 0,
                             err: u8::from(true),
-                            msg: c_str as *const libc::c_char
+                            msg: c_str
                         }
                     // }
                 }
@@ -132,8 +133,9 @@ pub fn qWEjz_klm_compile_wgsl(path: *const libc::c_char, ) -> CompileResult {
             // unsafe {
                 let e_str = e.emit_to_string(&input);
                 // let e_str = e.to_string();
-                let c_str: *mut libc::c_void = libc::malloc(e_str.len());
-                libc::memcpy(c_str, e_str.as_ptr() as *const libc::c_void, e_str.len());
+                let c_str: *mut libc::c_char = libc::malloc(e_str.len() + 1) as *mut libc::c_char;
+                libc::memcpy(c_str as *mut libc::c_void, e_str.as_ptr() as *const libc::c_void, e_str.len());
+                *(c_str.offset(e_str.len() as isize)) = 0;
                 return CompileResult {
                     data: null(),
                     len: 0,
